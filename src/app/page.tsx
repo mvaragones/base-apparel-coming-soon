@@ -5,13 +5,56 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 
 export default function Home() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState<string>("");
+  const [submittedEmails, setSubmittedEmails] = useState<string[]>([]);
+  const [emailError, setEmailError] = useState<string>("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle the email submission here
-    console.log("Email submitted:", email);
-    setEmail("");
+
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (email && emailRegex.test(email)) {
+      // Check for duplicate in local state
+      if (submittedEmails.includes(email)) {
+        setEmailError("This email has already been registered");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 400) {
+            setEmailError("This email has already been registered");
+          } else {
+            throw new Error("Failed to submit email");
+          }
+          return;
+        }
+
+        // Clear error message on success
+        setEmailError("");
+        // Update local state
+        setSubmittedEmails([...submittedEmails, email]);
+        // Clear input
+        setEmail("");
+      } catch (error) {
+        console.error("Error:", error);
+        setEmailError("Failed to submit email. Please try again.");
+      }
+    } else {
+      setEmailError("Please provide a valid email address");
+    }
   };
 
   return (
@@ -42,23 +85,30 @@ export default function Home() {
               <div className="max-w-md">
                 <form
                   onSubmit={handleSubmit}
-                  className="flex items-center relative rounded-full shadow-sm border border-gray-100"
+                  className="flex flex-col gap-2" // Added gap for error message spacing
                 >
-                  <textarea
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email Address"
-                    className="w-full py-3 px-6 rounded-full resize-none overflow-hidden bg-transparent focus:outline-none"
-                    rows={1}
-                    style={{ height: "50px" }}
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-0 rounded-full gradient-bg hover:opacity-50 hover:drop-shadow-xl cursor-pointer transition-colors text-white h-full flex items-center justify-center min-w-[20%]"
-                    aria-label="Subscribe"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
+                  <div className="relative flex items-center rounded-full shadow-sm border border-gray-100">
+                    <textarea
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email Address"
+                      className={`w-full py-3 px-6 rounded-full resize-none overflow-hidden bg-transparent focus:outline-none ${
+                        emailError ? "border-red-500" : ""
+                      }`}
+                      rows={1}
+                      style={{ height: "50px" }}
+                    />
+                    <button
+                      type="submit"
+                      className="absolute right-0 rounded-full gradient-bg hover:opacity-50 hover:drop-shadow-xl cursor-pointer transition-colors text-white h-full flex items-center justify-center min-w-[20%]"
+                      aria-label="Subscribe"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                  {emailError && (
+                    <p className="text-red-500 text-sm pl-6">{emailError}</p>
+                  )}
                 </form>
               </div>
             </div>
